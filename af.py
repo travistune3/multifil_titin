@@ -107,12 +107,20 @@ class BindingSite:
 
     def bind_to(self, crossbridge):
         """Link this binding site to a cross-bridge object"""
-        self.bound_to = crossbridge
+        """Link this binding site to a given, cross-bridge object
+        return a reference to ourselves"""
+        if self.bound_to is None:  # are we available?
+            self.bound_to = crossbridge  # record the xb's phone number
+            return self  # give the xb our phone number
+        else:  # we are already taken!!!
+            #pdb.set_trace()
+            return None  # don't give this xb our phone number
 
     def unbind(self):
         """Kill off any link to a crossbridge"""
         assert(self.bound_to is not None) # Else why try to unbind?
         self.bound_to = None
+        return None  # return our self - to remove us from our ex-crossbridge
 
     @property
     def state(self):
@@ -173,6 +181,7 @@ class ThinFace:
         tfd.pop('parent_thin')
         tfd['thick_face'] = tfd['thick_face'].address
         tfd['binding_sites'] = [bs.address for bs in tfd['binding_sites']]
+        tfd['titin_fil'] = tfd['titin_fil'].to_dict()
         return tfd
 
     def from_dict(self, tfd):
@@ -191,7 +200,8 @@ class ThinFace:
                               for bsa in tfd['binding_sites']]
 
     def link_titin(self, titin_fil):
-        self.titin_fil = titin_fil ## CHECK_JDP ##
+        """Add a titin filament to this face"""
+        self.titin_fil = titin_fil
 
     def nearest(self, axial_location):
         """Where is the nearest binding site?
@@ -220,11 +230,10 @@ class ThinFace:
                             face_locs[close_index-1] - axial_location))
         else:
             return self.binding_sites[close_index-1] # If so, return end
-        if dists[0] < dists[1] or len(self.binding_sites) >= close_index + 1:
-            # TODO: Carefully cehck the nearest bs finder
+        if dists[0] < dists[1]:
             return self.binding_sites[close_index]
         else:
-            return self.binding_sites[close_index + 1]
+            return self.binding_sites[close_index - 1] # default, [close_index+1], TT changed to [close_index-1] because it was giving the wrong closest guy 
 
     def radialforce(self):
         """What is the radial force this face experiences?

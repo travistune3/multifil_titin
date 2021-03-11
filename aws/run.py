@@ -90,7 +90,7 @@ class manage:
         actin_permissiveness = none_if_list('actin_permissiveness')
         # Time dependent values
         time_dep_dict = {}
-        for prop in ['z_line', 'actin_permissiveness']:
+        for prop in ['z_line', 'actin_permissiveness', 'lattice_spacing']:
             if type(meta[prop]) is list:
                 time_dep_dict[prop] = meta[prop]
         # Instantiate sarcomere
@@ -159,6 +159,7 @@ class manage:
         self._copy_file_to_final_location(sarc_final_name)
         self.sarcfile.delete() # clean up temp files
         self._log_it("uploading finished, done with this run")
+        shutil.rmtree(self.working_dir)
 
     def _run_status(self, timestep, start, every):
         """Report the run status"""
@@ -203,10 +204,14 @@ class sarc_file:
         self.working_file.write('\n]')
         self.working_file.close()
         time.sleep(1)
-        self.zip_filename = self.meta['name']+'.sarc.tar.gz'
-        cp = subprocess.run(['tar', 'czf', self.zip_filename,
-                             '-C', self.working_directory,
-                             self.working_filename])
+        self.zip_filename = self.working_directory + '/' + self.meta['name']+'.sarc.tar.gz'
+
+        if os.name == 'nt':
+            str = '7z a -ttar ' + self.zip_filename[0:-3] + ' ' + self.working_filename + ' | ' + '7z a -ttar ' + self.zip_filename + ' ' + self.zip_filename
+            cp = subprocess.run(str, shell = True)
+        else:
+            cp = subprocess.run(['tar', 'czf', self.zip_filename,'-C', self.working_directory, self.working_filename], shell=True)
+
         os.remove(self.working_filename)
         return self.zip_filename
 
@@ -234,6 +239,9 @@ class data_file:
             'xb_fraction_free': [],
             'xb_fraction_loose': [],
             'xb_fraction_tight': [],
+            'xb_num_free': [],
+            'xb_num_loose': [],
+            'xb_num_tight': [],
             'xb_trans_12': [],
             'xb_trans_23': [],
             'xb_trans_31': [],
@@ -250,6 +258,8 @@ class data_file:
             'thin_displace_max': [],
             'thin_displace_min': [],
             'thin_displace_std': [],
+            'mean_titin_length': [],
+            'titin_elastic_U': [],
         }
 
     def append(self):
@@ -262,12 +272,14 @@ class data_file:
         ## Calculated components
         radial_force = self.sarc.radialforce()
         xb_fracs = self.sarc.get_frac_in_states()
+        xb_nums = self.sarc.get_num_in_states()
         xb_trans = sum(sum(self.sarc.last_transitions,[]),[])
         act_perm = np.mean(self.sarc.actin_permissiveness)
         thick_d = np.hstack([t.displacement_per_crown()
                              for t in self.sarc.thick])
         thin_d = np.hstack([t.displacement_per_node()
                             for t in self.sarc.thin])
+        mean_titin_length = np.mean([t.length() for t in self.sarc.titin])
         ## Dictionary work
         ad('timestep', self.sarc.current_timestep)
         ad('z_line', self.sarc.z_line)
@@ -279,6 +291,9 @@ class data_file:
         ad('xb_fraction_free', xb_fracs[0])
         ad('xb_fraction_loose', xb_fracs[1])
         ad('xb_fraction_tight', xb_fracs[2])
+        ad('xb_num_free', xb_nums[0])
+        ad('xb_num_loose', xb_nums[1])
+        ad('xb_num_tight', xb_nums[2])
         ad('xb_trans_12', xb_trans.count('12'))
         ad('xb_trans_23', xb_trans.count('23'))
         ad('xb_trans_31', xb_trans.count('31'))
@@ -295,6 +310,8 @@ class data_file:
         ad('thin_displace_max', np.max(thin_d))
         ad('thin_displace_min', np.min(thin_d))
         ad('thin_displace_std', np.std(thin_d))
+        ad('mean_titin_length', mean_titin_length)
+        ad('titin_elastic_U', self.sarc.thick_energy())
 
     def finalize(self):
         """Write the data dict to the temporary file location"""

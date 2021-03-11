@@ -49,6 +49,17 @@ class Titin:
         self.a = a
         self.b = b
 
+    def to_dict(self):
+        """Create a JSON compatible representation of the titin
+        Usage example: json.dumps(thin_face.to_dict(), indent=1)
+        """
+        ti = self.__dict__.copy()
+        ti.pop('index')
+        ti.pop('parent_lattice')
+        ti['thick_face'] = ti['thick_face'].address
+        ti['thin_face'] = ti['thin_face'].address
+        return ti
+
     def angle(self):
         """Caclulate the angle the titin makes relative to thick filament"""
         act_loc = self.thin_face.parent_thin.parent_lattice.z_line

@@ -327,6 +327,7 @@ class hs:
         sd['actin_permissiveness'] = np.mean(self.actin_permissiveness)
         sd['thick'] = [t.to_dict() for t in sd['thick']]
         sd['thin'] = [t.to_dict() for t in sd['thin']]
+        sd['titin'] = [t.to_dict() for t in sd['titin']]
         return sd
 
     def from_dict(self, sd):
@@ -357,6 +358,8 @@ class hs:
         if 'last_transitions' in sd.keys():
             self.last_transitions = sd['last_transitions']
         # Sub-structure keys
+        for data, titin in zip(sd['titin'], self.titin):
+            titin.from_dict(data)
         for data, thick in zip(sd['thick'], self.thick):
             thick.from_dict(data)
         for data, thin in zip(sd['thin'], self.thin):
@@ -469,7 +472,15 @@ class hs:
     def z_line(self, new_z_line):
         """Set a new z-line, updating the lattice spacing at the same time"""
         self._z_line = new_z_line
-        self.update_ls_from_poisson_ratio()
+        # update from time_dependece dict if 'lattice_spacing' exists, else update from poisson ratio
+        if self.time_dependence is None:
+            self.update_ls_from_poisson_ratio()
+        else:
+            if 'lattice_spacing' in self.time_dependence:
+                pass
+                # already updated, next statement overwrites if called
+            else:
+                self.update_ls_from_poisson_ratio()
 
     @property
     def lattice_spacing(self):
@@ -510,7 +521,7 @@ class hs:
             d10: d10 spacing in nm
         """
         filcenter_dist = face_dist + 0.5 * 9 + 0.5 * 16
-        d10 = 1.5* filcenter_dist
+        d10 = 1.5* filcenter_dist # 3/2 for vert, sqrt(3) invert flight
         return d10
 
     @staticmethod
@@ -525,7 +536,7 @@ class hs:
         Returns:
             face_dist: face to face lattice spacing in nm
         """
-        filcenter_dist = d10 * 2/3
+        filcenter_dist = d10 * 2/3 # 2/3 for vertabrate, 1/sqrt(3) invert flight
         face_dist = filcenter_dist - 0.5 * 9 - 0.5 * 16
         return face_dist
 
@@ -593,6 +604,14 @@ class hs:
         num_in_state = [xb_states.count(state) for state in range(3)]
         frac_in_state = [n/float(len(xb_states)) for n in num_in_state]
         return frac_in_state
+    
+    
+    def get_num_in_states(self):
+        """Calculate the number of cross-bridges in each state"""
+        nested = [t.get_states() for t in self.thick]
+        xb_states = [xb for fil in nested for face in fil for xb in face]
+        num_in_state = [xb_states.count(state) for state in range(3)]
+        return num_in_state
 
     #ADDED BY JDP ON 2017-Aug-21
     def get_31_trans(self):
@@ -635,8 +654,30 @@ class hs:
         z_0 = self._initial_z_line
         nu = self.poisson_ratio
         dz = self.z_line - z_0
-        ls = (ls_0 + beta) * (z_0/(z_0 + dz))**nu - beta
+        
+                
+        if self.time_dependence is not None:
+            # pdb.set_trace()
+            if 'z_line' in self.time_dependence:
+                z_0 = np.mean(self.time_dependence['z_line']) # mean will be z0 if sinusoid
+        else:
+            z_0 = self._initial_z_line
+        
+        # ls = (ls_0 + beta) * (z_0/(z_0 + dz))**nu - beta
+        # self.lattice_spacing = ls
+        
+        # update with poisson ratio for invertebrate flight muscle
+        d10_0 =  np.sqrt(3) * (ls_0 + beta) # sqrt 3 is for invert flight muscle, 3/2 would be for vert 
+        delta_d10 = - d10_0 * (1 - (1 + (dz)/z_0 )**(-nu) )
+        ls = (d10_0 + delta_d10)/np.sqrt(3) - beta
         self.lattice_spacing = ls
+        
+        #  update with poisson ratio for vertebrate
+        # d10_0 =  3/2 * (ls_0 + beta) # sqrt 3 is for invert flight muscle, 3/2 would be for vert 
+        # delta_d10 = - d10_0 * (1 - (1 + (dz)/z_0 )**(-nu) )
+        # ls = (d10_0 + delta_d10)/(3/2) - beta
+        # self.lattice_spacing = ls
+        
         return
 
     def update_hiding_line(self):
