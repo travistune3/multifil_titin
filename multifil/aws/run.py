@@ -26,6 +26,8 @@ import multiprocessing as mp
 import boto
 import numpy as np
 
+import pdb
+
 from .. import hs
 
 ## Manage a local run
@@ -44,7 +46,7 @@ class manage:
             Whether to complete the run without further intervention or treat
             as an interactive session.
         """
-        self.s3 = s3()
+        # self.s3 = s3()
         self.uuid = metafile.split('/')[-1].split('.')[0]
         self.working_dir = self._make_working_dir(self.uuid)
         self.metafile = self._parse_metafile_location(metafile)
@@ -125,6 +127,7 @@ class manage:
             local_loc = os.path.abspath(os.path.expanduser(
                 self.meta['path_local'])) + file_name
             try:
+                time.sleep(1)   
                 shutil.copyfile(temp_loc, local_loc)
             except shutil.SameFileError:
                 pass
@@ -155,6 +158,8 @@ class manage:
         data_final_name = self.datafile.finalize()
         self._copy_file_to_final_location(data_final_name)
         self.datafile.delete() # clean up temp files
+        
+        # pdb.set_trace()
         sarc_final_name = self.sarcfile.finalize()
         self._copy_file_to_final_location(sarc_final_name)
         self.sarcfile.delete() # clean up temp files
@@ -207,12 +212,13 @@ class sarc_file:
         self.zip_filename = self.working_directory + '/' + self.meta['name']+'.sarc.tar.gz'
 
         if os.name == 'nt':
-            str = '7z a -ttar ' + self.zip_filename[0:-3] + ' ' + self.working_filename + ' | ' + '7z a -ttar ' + self.zip_filename + ' ' + self.zip_filename
-            cp = subprocess.run(str, shell = True)
+            # if on windows, needs 7zip to be installed and added the users environemnt path in order to tar.gz
+            zip_cmd = '7z -ttar a dummy ' + self.working_filename + ' -so | 7z -si -tgzip a ' + self.zip_filename
+            os.system('cmd /k ' + zip_cmd)
         else:
             cp = subprocess.run(['tar', 'czf', self.zip_filename,'-C', self.working_directory, self.working_filename], shell=True)
 
-        os.remove(self.working_filename)
+        # os.remove(self.working_filename)
         return self.zip_filename
 
     def delete(self):
@@ -311,7 +317,7 @@ class data_file:
         ad('thin_displace_min', np.min(thin_d))
         ad('thin_displace_std', np.std(thin_d))
         ad('mean_titin_length', mean_titin_length)
-        ad('titin_elastic_U', self.sarc.thick_energy())
+        # ad('titin_elastic_U', self.sarc.thick_energy())
 
     def finalize(self):
         """Write the data dict to the temporary file location"""

@@ -7,7 +7,6 @@ multifil/mf.py
 multifil/mh.py
 multifil/plot_hs.py
 multifil/ti.py
-multifil/tt.py
 multifil.egg-info/PKG-INFO
 multifil.egg-info/SOURCES.txt
 multifil.egg-info/dependency_links.txt
