@@ -33,20 +33,6 @@ import pdb
 root_path = 'C:/'
 
 
-
-#%% define where meta files are put directory
-####################################################
-
-wk_dir = root_path + '/test'
-# 2sxb_with_titin
-if not os.path.exists(wk_dir):
-    os.mkdir(wk_dir)
-    print(wk_dir)
-
-d10_manduca = [-0.484075997179581,-0.582775267484216,-0.643556951178390,-0.689553721822144,-0.642618968114505,-0.574812679169490,-0.452429215163164,-0.178144833719841,0.130811831020338,0.446384292241383,0.706374786393262,0.866137415770943,0.925465468319459,0.890717667745911,0.753837387889980,0.574812679169490,0.340954085718920,0.120854626275730,-0.0804974106288299,-0.299715751748096]
-real_d10_ph0 =np.add(47.16,d10_manduca)
-d10_to_ls = [i/(3**.5) - 4.5 - 8 for i in real_d10_ph0] # i/(3**.5) - 4.5 - 8
-    
     
 #%% 
    
@@ -58,12 +44,12 @@ def multi_meta_wl(folder, freq, lat, manduca_sexta, duration, t_in, t_out, peak_
     freq: frequency of work loop
     lat: list of lattice spacing offsets
     manduca sexta: 0 uses poisson ratio to updaet lattice spacing at each step, 1 uses data taken from x-ray diffraction during work loops
-    duration: number of periods to simulate
+    duration: on duration for Ca2+
     t_in: Ca2+ influx 
     t_out: Ca2+ decay
     peak_ap: actin permissivenes peak
     phase: phase of activation/stimulation
-    period:
+    period: number of periods to stimulate
     pr: poisson ratio
     dt: time step
 
@@ -89,7 +75,7 @@ def multi_meta_wl(folder, freq, lat, manduca_sexta, duration, t_in, t_out, peak_
     ap_ = ap_[0::df]
     time = np.arange(0,period*t_end,dt)
     ap_ = np.tile(ap_,period)
-    
+    # pdb.set_trace()
     # z line, length of sarcomere
     z_line = metas.zline_workloop(L0, z_amp, freq, time)
     
@@ -134,7 +120,7 @@ def multi_meta_wl(folder, freq, lat, manduca_sexta, duration, t_in, t_out, peak_
             plt.plot(time, ap)
             plt.show()
             # Emit metafile
-            meta_ = metas.emit(path_local=folder, path_s3=None, time=time, poisson=pr, ls=ls, z_line=z_line, actin_permissiveness=ap, z_line_rest=L0, lat_0 = lat[i], dt=dt, t=time, ap=ap, phase = phase[j], frequency=freq, manduca_sexta = manduca_sexta)
+            meta_ = metas.emit(path_local=folder, path_s3=None, time=time, poisson=pr, ls=ls, z_line=z_line, pca=5, z_line_rest=L0, lat_0 = lat[i], dt=dt, t=time, ap=ap, phase = phase[j], frequency=freq, manduca_sexta = manduca_sexta)
             meta_list.append(meta_)
             # print('ls=' + str(ls))
 
@@ -211,8 +197,6 @@ def run_series(wk_dir):
     print('total time: ' + str((end - start)/60) + ' minutes')
     return
     
-
-
 # data files
 #========================================================
 def get_datas(wk_dir):
@@ -223,16 +207,10 @@ def get_metas(wk_dir):
     mf_names = fnmatch.filter(os.listdir(wk_dir), '*.meta.json')
     return mf_names
 
-
-
-
 def phase_ave(data, periods, period_length):
     data = np.array(data).reshape(periods, period_length)
     data = data.mean(axis=0)
     return data
-
-
-
 
 def WL_meta_to_data_dict(data_name):
     meta_name = data_name[0:-10]+ '.meta.json'
@@ -277,7 +255,7 @@ def WL_meta_to_data_dict(data_name):
     data_dict['stress'] = stress
     data_dict['lat_0'] = mf['lat_0']
     data_dict['phase'] = mf['phase']
-    data_dict['ap'] = mf['actin_permissiveness']
+    data_dict['ap'] = mf['pca']
     data_dict['z_line_rest'] = mf['z_line_rest']
     data_dict['work_inc'] = work_inc
     data_dict['n_periods'] = n
@@ -299,6 +277,22 @@ def WL_data_dicts(folder):
     data_files = get_datas(folder)
     data_dicts = [WL_meta_to_data_dict(folder + '/' + i) for i in data_files]
     return data_dicts
+
+
+
+#%% define where meta files are put directory
+####################################################
+
+wk_dir = root_path + '/test2'
+# 2sxb_with_titin
+if not os.path.exists(wk_dir):
+    os.mkdir(wk_dir)
+    print(wk_dir)
+
+d10_manduca = [-0.484075997179581,-0.582775267484216,-0.643556951178390,-0.689553721822144,-0.642618968114505,-0.574812679169490,-0.452429215163164,-0.178144833719841,0.130811831020338,0.446384292241383,0.706374786393262,0.866137415770943,0.925465468319459,0.890717667745911,0.753837387889980,0.574812679169490,0.340954085718920,0.120854626275730,-0.0804974106288299,-0.299715751748096]
+real_d10_ph0 =np.add(47.16,d10_manduca)
+d10_to_ls = [i/(3**.5) - 4.5 - 8 for i in real_d10_ph0] # i/(3**.5) - 4.5 - 8
+    
 #%% 
 
 #clear meta folder
@@ -314,7 +308,7 @@ print(wk_dir)
 # name a single frequency, and list of lattice spacings and phases of activations
 freq = 25
 lat = np.linspace(15,16,1,endpoint=True).tolist()#[15]
-phase = np.linspace(.00,1.,10,endpoint=False).tolist()#[0,.1,.2,.3,.4,.5,.6,.7,.8,.9]
+phase = np.linspace(.00,1.,1,endpoint=False).tolist()#[0,.1,.2,.3,.4,.5,.6,.7,.8,.9]
 
 # poisson ratio, 0 = constant lattice spacing, .5 = isovolumetric constraint
 pr=0.0
@@ -323,13 +317,13 @@ pr=0.0
 ms=0
 
 #duration of simulation in periods
-period = 2
+period = 1
 
 # time step in ms
 dt=.1   # .1
-
+ 
 # creates the metas based on the above, outputs to wk_dir 
-meta_list = multi_meta_wl(wk_dir, freq=freq, lat=lat, manduca_sexta=ms, duration=10*5, t_in=6, \
+meta_list = multi_meta_wl(wk_dir, freq=freq, lat=lat, manduca_sexta=ms, duration=5, t_in=6, \
                                  t_out=2, peak_ap = .2, phase = phase, period=period, pr=pr, dt=dt)
 
 
@@ -362,10 +356,10 @@ meta_list = multi_meta_wl(wk_dir, freq=freq, lat=lat, manduca_sexta=ms, duration
 print(wk_dir)
 
 # run meta files in parralelelaleé
-run_par(wk_dir) 
+# run_par(wk_dir) 
 
 # run in series
-# run_series(wk_dir) 
+run_series(wk_dir) 
 
 
 #%% plots stuff
@@ -387,6 +381,7 @@ data[0].keys()
 for i in range(0,len(data)):
     plt.plot(np.multiply(np.asarray(data[i]['strain']),2), np.transpose(data[i]['stress']), label = data[i]['phase'])
     plt.legend()
+plt.title('work loops')
 plt.show()
 
 # plots phase of activation vs net work, and compares with manduca sexta experimental data
@@ -394,9 +389,11 @@ plt.plot([i['phase'] for i in data], [np.sum(i['work_per_cycle']) for i in data]
 plt.errorbar(np.arange(0,1,.1), mean_work, work_std, label='in vivo - argonne')
 # plt.ylim((-6,3))
 plt.savefig(wk_dir + '/W_v_phase.eps', format='eps')
+plt.title('phase of activation vs net work')
 plt.show()
 
-plt.plot(data[0]['time'],np.transpose([i['lattice_spacing'] for i in data]))
+plt.plot(data[0]['time'],np.transpose([i['ap'] for i in data]))
+plt.title('activation')
 plt.show()
 
 # lattice offset (L_0) vs net work 
@@ -405,6 +402,14 @@ for i in range(0,len(data)):
 # plt.legend()
 # plt.ylim((-5,3))
 plt.savefig(wk_dir + '/w_v_lat.eps', format='eps')
+plt.title('lattice vs net work ')
+plt.show()
+
+# plots each work loop (phase averaged)
+for i in range(0,len(data)):
+    plt.plot(np.multiply(np.asarray(data[i]['time']),2), np.transpose(data[i]['stress']), label = data[i]['phase'])
+    plt.legend()
+plt.title('stress vs time')
 plt.show()
 
 
@@ -412,24 +417,22 @@ plt.show()
 
 
 
+# i=0
+# plt.plot(data[i]['time'], 100*np.transpose(data[i]['xb_trans_12']), label = (data[i]['lat_0']+8+4.5)*3**.5)
+# plt.plot(data[i]['time'], 100*np.transpose(data[i]['xb_trans_23']), label = (data[i]['lat_0']+8+4.5)*3**.5)
+# plt.plot(data[i]['time'], 100*np.transpose(data[i]['xb_trans_31']), label = (data[i]['lat_0']+8+4.5)*3**.5)
+# # plt.plot(data[i]['time'], np.transpose(data[i]['stress']), label = (data[i]['lat_0']+8+4.5)*3**.5)
+# plt.legend()
+# plt.ylim((0,1600))
+# plt.show()
 
-
-
-i=5
-plt.plot(data[i]['time'], 100*np.transpose(data[i]['xb_trans_12']), label = (data[i]['lat_0']+8+4.5)*3**.5)
-plt.plot(data[i]['time'], 100*np.transpose(data[i]['xb_trans_23']), label = (data[i]['lat_0']+8+4.5)*3**.5)
-plt.plot(data[i]['time'], 100*np.transpose(data[i]['xb_trans_31']), label = (data[i]['lat_0']+8+4.5)*3**.5)
+i=0
+plt.plot(data[i]['time'], 100*np.transpose(data[i]['xb_fraction_loose']), label = 'loose')
+plt.plot(data[i]['time'], 100*np.transpose(data[i]['xb_fraction_tight']), label = 'tight')
 # plt.plot(data[i]['time'], np.transpose(data[i]['stress']), label = (data[i]['lat_0']+8+4.5)*3**.5)
 plt.legend()
-plt.ylim((0,1600))
-plt.show()
-
-i=5
-plt.plot(data[i]['time'], 100*np.transpose(data[i]['xb_fraction_loose']), label = (data[i]['lat_0']+8+4.5)*3**.5)
-plt.plot(data[i]['time'], 100*np.transpose(data[i]['xb_fraction_tight']), label = (data[i]['lat_0']+8+4.5)*3**.5)
-# plt.plot(data[i]['time'], np.transpose(data[i]['stress']), label = (data[i]['lat_0']+8+4.5)*3**.5)
-plt.legend()
-plt.ylim((0,10))
+plt.ylim((0,100))
+plt.title('xb fraction in loose and tight states')
 plt.show()
 
 
@@ -447,12 +450,12 @@ plt.show()
 
 
 
-i=5
-plt.plot(data[i]['time'], np.transpose(data[i]['stress']), label = data[i]['lat_0'])
-plt.legend()
-plt.ylim((-5,60))
-plt.savefig(wk_dir + '/stress.eps', format='eps')
-plt.show()
+# i=5
+# plt.plot(data[i]['time'], np.transpose(data[i]['stress']), label = data[i]['lat_0'])
+# plt.legend()
+# plt.ylim((-5,60))
+# plt.savefig(wk_dir + '/stress.eps', format='eps')
+# plt.show()
 
 # i=7
 # plt.plot(data[i]['time'], np.transpose(data[i]['stress']), label = data[i]['lat_0'])
@@ -479,8 +482,6 @@ plt.show()
 #%%
 
 # for running a list of folders, each with separate conditions
-wk_dir_list = os.listdir(root_path + '/isoV_isoL_real_longer/')
-wk_dir_list = [root_path + '\\isoV_isoL_real_longer\\' + i for i in wk_dir_list]
 
 random.shuffle(wk_dir_list)
 
